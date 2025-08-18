@@ -1,0 +1,499 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Ретро-игра — Колесо фортуны (Frontend only)</title>
+<style>
+  :root{
+    --bg:#0f1724; --card:#0b1220; --muted:#98a2b3; --accent:#7c3aed;
+    color-scheme: dark;
+  }
+  body{margin:0;font-family:Inter,Segoe UI,Helvetica,Arial,sans-serif;background:linear-gradient(180deg,#071023 0%, #071427 100%);color:#e6eef6;}
+  .app{max-width:1100px;margin:28px auto;padding:20px;display:grid;grid-template-columns:360px 1fr;gap:18px;}
+  .card{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01));border-radius:12px;padding:16px;box-shadow:0 6px 20px rgba(2,6,23,0.6);}
+  h2{margin:6px 0 12px;font-size:18px}
+  label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px}
+  input[type="text"], input[type="color"], textarea, select{width:100%;padding:8px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:transparent;color:inherit;outline:none}
+  textarea{min-height:80px;resize:vertical}
+  .row{display:flex;gap:8px}
+  button{background:var(--accent);border:none;color:white;padding:8px 12px;border-radius:8px;cursor:pointer}
+  button.ghost{background:transparent;border:1px solid rgba(255,255,255,0.06)}
+  .small{padding:6px 8px;font-size:13px}
+  .list{max-height:260px;overflow:auto;margin-top:8px;padding-right:6px}
+  .item{display:flex;align-items:center;justify-content:space-between;padding:8px;border-radius:8px;background:rgba(255,255,255,0.01);margin-bottom:8px}
+  .item .meta{display:flex;gap:10px;align-items:center}
+  .avatar{width:34px;height:34px;border-radius:8px;display:inline-grid;place-items:center;font-weight:600;color:#071427}
+  .theme-color{width:18px;height:18px;border-radius:4px;border:1px solid rgba(0,0,0,0.15)}
+  .muted{color:var(--muted);font-size:13px}
+  /* Wheel area */
+  .play-area{display:flex;gap:16px;align-items:flex-start;padding:12px}
+  .wheel-wrap{width:520px;height:520px;display:grid;place-items:center;position:relative}
+  svg#wheel{width:100%;height:100%}
+  .pointer{position:absolute;top:6px;left:50%;transform:translateX(-50%);z-index:5;pointer-events:none}
+  .controls{display:flex;flex-direction:column;gap:8px;width:340px}
+  .question-box{background:rgba(0,0,0,0.3);padding:12px;border-radius:10px;min-height:84px}
+  .history{max-height:160px;overflow:auto;margin-top:8px;padding-right:6px}
+  .history-item{font-size:13px;padding:8px;border-radius:6px;background:rgba(255,255,255,0.015);margin-bottom:6px}
+  .tag{display:inline-flex;align-items:center;gap:8px;padding:6px 8px;border-radius:999px;font-weight:600}
+  .centered{display:flex;align-items:center;gap:8px;justify-content:center}
+  footer{grid-column:1/-1;margin-top:18px;color:var(--muted);font-size:13px;text-align:center}
+  @media(max-width:1000px){.app{grid-template-columns:1fr;}.wheel-wrap{width:360px;height:360px}.controls{width:100%}}
+</style>
+</head>
+<body>
+<div class="app">
+  <div class="card">
+    <h2>Управление</h2>
+
+    <label>Добавить участника</label>
+    <div class="row" style="margin-bottom:8px">
+      <input id="participantName" type="text" placeholder="Имя участника" />
+      <button id="addParticipantBtn" class="small">Добавить</button>
+    </div>
+
+    <label>Создать тему</label>
+    <input id="themeTitle" type="text" placeholder="Название темы (напр. 'Что пошло не так?')" />
+    <div class="row" style="margin-top:8px">
+      <input id="themeColor" type="color" value="#ff8a65" />
+      <button id="addThemeBtn" class="small">Добавить тему</button>
+    </div>
+
+    <label style="margin-top:10px">Вопросы для темы (каждый с новой строки)</label>
+    <textarea id="themeQuestions" placeholder="Вопрос 1&#10;Вопрос 2"></textarea>
+
+    <div class="row" style="margin-top:10px">
+      <button id="assignBtn" class="small">Распределить темы</button>
+      <button id="resetBtn" class="small ghost">Сбросить</button>
+    </div>
+
+    <h2 style="margin-top:12px">Участники</h2>
+    <div id="participantsList" class="list"></div>
+
+    <h2>Темы</h2>
+    <div id="themesList" class="list"></div>
+  </div>
+
+  <div class="card">
+    <div class="play-area">
+      <div class="wheel-wrap">
+        <div class="pointer">
+          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" aria-hidden>
+            <path d="M12 2v6" stroke="#fffb" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <path d="M8 8l4-6 4 6" stroke="#fffb" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" fill="#fff0"/>
+          </svg>
+        </div>
+        <svg id="wheel" viewBox="-250 -250 500 500" role="img" aria-label="Колесо фортуны"></svg>
+      </div>
+
+      <div class="controls">
+        <div class="centered">
+          <button id="spinBtn" style="font-size:16px;padding:10px 16px">СПИН</button>
+          <button id="pickRandomBtn" class="ghost">Выбрать ручной</button>
+        </div>
+
+        <div class="question-box" id="questionBox">
+          <div id="currentInfo" class="muted">Нажмите <b>СПИН</b>, чтобы начать раунд</div>
+          <div id="currentQuestion" style="margin-top:8px;font-size:16px;font-weight:600"></div>
+        </div>
+
+        <div class="row" style="margin-top:8px">
+          <button id="answeredBtn" class="small">Ответил</button>
+          <button id="skipBtn" class="small ghost">Пропустить</button>
+        </div>
+
+        <h2 style="margin-top:12px">История раундов</h2>
+        <div id="history" class="history"></div>
+      </div>
+    </div>
+  </div>
+
+  <footer class="card">Frontend-only prototype — можно расширять: drag-n-drop, синхронизация, экспорт и т.д.</footer>
+</div>
+
+<script>
+/* Простая фронтенд-реализация игры (MVP) */
+
+// Утилиты
+function uid(prefix='id'){ return prefix + '_' + Math.random().toString(36).slice(2,9); }
+function qs(id){ return document.getElementById(id); }
+function saveState(){ localStorage.setItem('retro_state_v1', JSON.stringify(state)); }
+function loadState(){ try { return JSON.parse(localStorage.getItem('retro_state_v1')) || null } catch(e){ return null } }
+
+const defaultState = {
+  participants: [], // {id,name,themeId}
+  themes: [],       // {id,title,color,questions:[{id,text,isAnswered}]}
+  history: []       // {participantId,themeId,questionId,skipped,answeredAt}
+};
+
+let state = loadState() || structuredClone(defaultState);
+
+// UI nodes
+const participantsList = qs('participantsList');
+const themesList = qs('themesList');
+const addParticipantBtn = qs('addParticipantBtn');
+const participantNameInput = qs('participantName');
+const themeTitleInput = qs('themeTitle');
+const themeColorInput = qs('themeColor');
+const themeQuestionsInput = qs('themeQuestions');
+const addThemeBtn = qs('addThemeBtn');
+const assignBtn = qs('assignBtn');
+const resetBtn = qs('resetBtn');
+const wheelSvg = qs('wheel');
+const spinBtn = qs('spinBtn');
+const pickRandomBtn = qs('pickRandomBtn');
+const currentInfo = qs('currentInfo');
+const currentQuestionEl = qs('currentQuestion');
+const answeredBtn = qs('answeredBtn');
+const skipBtn = qs('skipBtn');
+const historyEl = qs('history');
+
+// Reactive-ish render
+function renderParticipants(){
+  participantsList.innerHTML = '';
+  state.participants.forEach(p => {
+    const el = document.createElement('div'); el.className='item';
+    const meta = document.createElement('div'); meta.className='meta';
+    const avatar = document.createElement('div'); avatar.className='avatar'; avatar.textContent = p.name.slice(0,2).toUpperCase();
+    const name = document.createElement('div'); name.innerHTML = `<div style="font-weight:600">${p.name}</div><div class="muted">${p.themeId ? (state.themes.find(t=>t.id===p.themeId)?.title || '—') : 'не назначен'}</div>`;
+    meta.appendChild(avatar); meta.appendChild(name);
+    const actions = document.createElement('div');
+    const del = document.createElement('button'); del.className='small ghost'; del.textContent='Удалить';
+    del.onclick = ()=>{ state.participants = state.participants.filter(x=>x.id!==p.id); saveState(); renderAll(); }
+    actions.appendChild(del);
+    el.appendChild(meta); el.appendChild(actions);
+    participantsList.appendChild(el);
+  });
+  if(state.participants.length===0) participantsList.innerHTML = '<div class="muted">Список пуст</div>';
+}
+
+function renderThemes(){
+  themesList.innerHTML = '';
+  state.themes.forEach(t => {
+    const el = document.createElement('div'); el.className='item';
+    const meta = document.createElement('div'); meta.className='meta';
+    const color = document.createElement('div'); color.className='theme-color'; color.style.background = t.color;
+    const title = document.createElement('div'); title.innerHTML = `<div style="font-weight:600">${t.title}</div><div class="muted">${t.questions.length} вопросов</div>`;
+    meta.appendChild(color); meta.appendChild(title);
+
+    const actions = document.createElement('div');
+    const edit = document.createElement('button'); edit.className='small ghost'; edit.textContent='Редактировать';
+    edit.onclick = ()=>{ // простая инлайн-редакция: заполняем поля формы для редактирования (append questions)
+      themeTitleInput.value = t.title;
+      themeColorInput.value = t.color;
+      themeQuestionsInput.value = t.questions.map(q=>q.text + (q.isAnswered ? ' (✓)' : '')).join('\\n');
+      // remove original theme to avoid duplicate on save, user can re-add
+      state.themes = state.themes.filter(x=>x.id!==t.id);
+      state.participants.forEach(p => { if(p.themeId===t.id) delete p.themeId; });
+      saveState(); renderAll();
+    };
+    const del = document.createElement('button'); del.className='small ghost'; del.textContent='Удалить';
+    del.onclick = ()=>{ state.themes = state.themes.filter(x=>x.id!==t.id); state.participants.forEach(p=>{ if(p.themeId===t.id) delete p.themeId }); saveState(); renderAll(); }
+    actions.appendChild(edit); actions.appendChild(del);
+    el.appendChild(meta); el.appendChild(actions);
+
+    // questions preview
+    const qPreview = document.createElement('div'); qPreview.style.marginTop='8px';
+    t.questions.slice(0,4).forEach(q => {
+      const qEl = document.createElement('div'); qEl.style.fontSize='13px'; qEl.textContent = (q.isAnswered ? '✓ ' : '• ') + q.text;
+      qPreview.appendChild(qEl);
+    });
+    if(t.questions.length>4){
+      const more = document.createElement('div'); more.className='muted'; more.textContent = `еще ${t.questions.length-4}...`;
+      qPreview.appendChild(more);
+    }
+    el.appendChild(qPreview);
+
+    themesList.appendChild(el);
+  });
+  if(state.themes.length===0) themesList.innerHTML = '<div class="muted">Тем пока нет</div>';
+}
+
+// wheel rendering
+function buildWheelData(){
+  // For each theme compute count of participants assigned
+  const data = state.themes.map(t => {
+    const count = state.participants.filter(p=>p.themeId===t.id).length;
+    return {...t, count};
+  }).filter(d=>d.count>0); // only themes with participants
+  return data;
+}
+
+function drawWheel(){
+  // clear
+  while(wheelSvg.firstChild) wheelSvg.removeChild(wheelSvg.firstChild);
+  const data = buildWheelData();
+  if(data.length===0){
+    const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+    const txt = document.createElementNS('http://www.w3.org/2000/svg','text');
+    txt.setAttribute('x','0'); txt.setAttribute('y','6'); txt.setAttribute('text-anchor','middle'); txt.setAttribute('fill','#bfcfe0');
+    txt.setAttribute('font-size','16'); txt.textContent = 'Нет назначенных участников';
+    g.appendChild(txt); wheelSvg.appendChild(g); return;
+  }
+  const total = data.reduce((s,d)=>s+d.count,0);
+  let angleStart = 0;
+  const radius = 200;
+  const group = document.createElementNS('http://www.w3.org/2000/svg','g');
+  group.setAttribute('id','wheelGroup');
+  let sectorIndex = 0;
+  data.forEach(d=>{
+    const slice = d.count / total;
+    const angle = slice * 2 * Math.PI;
+    const a0 = angleStart;
+    const a1 = angleStart + angle;
+    const x0 = Math.cos(a0) * radius;
+    const y0 = Math.sin(a0) * radius;
+    const x1 = Math.cos(a1) * radius;
+    const y1 = Math.sin(a1) * radius;
+    const largeArc = angle > Math.PI ? 1 : 0;
+    const path = document.createElementNS('http://www.w3.org/2000/svg','path');
+    const dAttr = `M 0 0 L ${x0} ${y0} A ${radius} ${radius} 0 ${largeArc} 1 ${x1} ${y1} Z`;
+    path.setAttribute('d', dAttr);
+    path.setAttribute('fill', d.color);
+    path.setAttribute('stroke', 'rgba(0,0,0,0.35)');
+    path.setAttribute('data-theme-id', d.id);
+    path.setAttribute('data-index', sectorIndex);
+    path.setAttribute('opacity','0.95');
+    group.appendChild(path);
+
+    // label
+    const mid = (a0 + a1) / 2;
+    const tx = Math.cos(mid) * (radius * 0.58);
+    const ty = Math.sin(mid) * (radius * 0.58);
+    const text = document.createElementNS('http://www.w3.org/2000/svg','text');
+    text.setAttribute('x', tx.toString());
+    text.setAttribute('y', ty.toString());
+    text.setAttribute('text-anchor','middle');
+    text.setAttribute('dominant-baseline','central');
+    text.setAttribute('font-size','12');
+    text.setAttribute('fill','#071427');
+    text.setAttribute('font-weight','700');
+    text.textContent = d.title + ` (${d.count})`;
+    // rotate label for readability if on bottom half
+    let deg = (mid * 180 / Math.PI);
+    if(deg > 90 && deg < 270){
+      deg += 180;
+    }
+    text.setAttribute('transform', `rotate(${deg}, ${tx}, ${ty})`);
+    group.appendChild(text);
+
+    angleStart = a1;
+    sectorIndex++;
+  });
+
+  // center circle
+  const center = document.createElementNS('http://www.w3.org/2000/svg','circle');
+  center.setAttribute('cx','0'); center.setAttribute('cy','0'); center.setAttribute('r','36');
+  center.setAttribute('fill','rgba(255,255,255,0.03)');
+  center.setAttribute('stroke','rgba(255,255,255,0.04)');
+  group.appendChild(center);
+
+  // add group
+  wheelSvg.appendChild(group);
+}
+
+// helpers for spin logic
+let spinInProgress = false;
+let currentRound = null; // {participant, question, theme}
+function getUnansweredQuestions(theme){
+  return theme.questions.filter(q=>!q.isAnswered);
+}
+
+function pickRandomParticipant(){
+  if(state.participants.length===0) return null;
+  const idx = Math.floor(Math.random()*state.participants.length);
+  return state.participants[idx];
+}
+
+function findThemeForParticipant(participant){
+  return state.themes.find(t=>t.id===participant.themeId);
+}
+
+function startSpinFor(participant){
+  if(spinInProgress){ console.warn('spin busy'); return; }
+  const theme = findThemeForParticipant(participant);
+  if(!theme){ alert('Участнику не назначена тема'); return; }
+  const unanswered = getUnansweredQuestions(theme);
+  if(unanswered.length===0){
+    if(!confirm('В теме нет неотвеченных вопросов. Пометить все вопросы как неотвеченные и продолжить?')) return;
+    theme.questions.forEach(q=>q.isAnswered=false);
+  }
+  const question = theme.questions.filter(q=>!q.isAnswered)[Math.floor(Math.random()*theme.questions.filter(q=>!q.isAnswered).length)];
+  // determine sector center angle to spin to theme sector
+  const data = buildWheelData();
+  const themeIndex = data.findIndex(d=>d.id===theme.id);
+  if(themeIndex===-1){
+    alert('Тема не представлена на колесе (нет участников в ней).');
+    return;
+  }
+  // compute center angle in degrees: accumulate slices
+  const total = data.reduce((s,d)=>s+d.count,0);
+  let acc=0;
+  for(let i=0;i<themeIndex;i++) acc += data[i].count;
+  const startFrac = acc/total;
+  const sliceFrac = data[themeIndex].count/total;
+  const centerFrac = startFrac + sliceFrac/2;
+  const centerDeg = centerFrac * 360; // 0..360, relative to svg coordinates (0deg at +x)
+  // Our pointer is at top (12 o'clock). But svg used 0deg at +x (3 o'clock). We'll convert:
+  // angle to rotate so that sector center aligns with pointer: needed rotation = (270 - centerDeg) mod 360
+  const targetDeg = (270 - centerDeg + 360*10) % 360; // + many rotations
+  const rotations = 6 + Math.floor(Math.random()*3); // extra randomness
+  const finalDeg = rotations*360 + targetDeg + (Math.random()* (sliceFrac*360/2) - (sliceFrac*360/4)); // small jitter
+  // apply CSS transform on group
+  const group = document.getElementById('wheelGroup');
+  if(!group){ alert('Wheel not ready'); return; }
+  spinInProgress = true;
+  currentInfo.textContent = `Крутится — выбираем ${participant.name}...`;
+  currentQuestionEl.textContent = '';
+  group.style.transition = 'transform 4s cubic-bezier(.12,.8,.18,1)';
+  // read current rotation to allow consecutive spins:
+  const prev = group.getAttribute('data-rot') || '0';
+  const prevNum = parseFloat(prev) || 0;
+  const toRotate = prevNum + finalDeg;
+  group.style.transform = `rotate(${toRotate}deg)`;
+  group.setAttribute('data-rot', toRotate.toString());
+
+  // highlight: dim others while spinning
+  const paths = group.querySelectorAll('path');
+  paths.forEach(p=>p.style.opacity='0.7');
+
+  group.addEventListener('transitionend', function handler(){
+    group.removeEventListener('transitionend', handler);
+    // restore opacity
+    paths.forEach(p=>p.style.opacity='0.95');
+    spinInProgress = false;
+    // finish round
+    currentRound = { participantId: participant.id, themeId: theme.id, questionId: question.id, skipped:false, answeredAt:null };
+    renderCurrentRound(participant, theme, question);
+  }, {once:true});
+}
+
+// display current round in UI
+function renderCurrentRound(participant, theme, question){
+  currentInfo.innerHTML = `<div class="muted">Игрок: <b>${participant.name}</b> · Тема: <span class="tag" style="background:${theme.color};color:#071427;padding:6px 8px;border-radius:8px">${theme.title}</span></div>`;
+  currentQuestionEl.textContent = question.text;
+}
+
+// actions
+answeredBtn.onclick = ()=>{
+  if(!currentRound){ alert('Нет активного вопроса'); return; }
+  // find theme/question and mark answered & remove participant
+  const theme = state.themes.find(t=>t.id===currentRound.themeId);
+  if(!theme){ alert('Тема не найдена'); return; }
+  const q = theme.questions.find(q=>q.id===currentRound.questionId);
+  if(q) q.isAnswered = true;
+  // remove participant from pool
+  state.participants = state.participants.filter(p=>p.id!==currentRound.participantId);
+  currentRound.answeredAt = new Date().toISOString();
+  state.history.unshift({...currentRound, skipped:false, answeredAt:currentRound.answeredAt});
+  currentRound = null;
+  saveState(); renderAll();
+  currentInfo.textContent = 'Вопрос отмечен как отвеченный и участник удалён.';
+  currentQuestionEl.textContent='';
+};
+
+skipBtn.onclick = ()=>{
+  if(!currentRound){ alert('Нет активного вопроса'); return; }
+  currentRound.skipped = true;
+  state.history.unshift({...currentRound, skipped:true, answeredAt:null});
+  // mark question not answered and keep participant
+  currentRound = null;
+  saveState(); renderAll();
+  currentInfo.textContent = 'Вопрос пропущен.';
+  currentQuestionEl.textContent='';
+};
+
+// spin handlers
+spinBtn.onclick = ()=>{
+  if(spinInProgress) return;
+  if(state.participants.length===0){ alert('Нет участников'); return; }
+  // choose random participant
+  const chosen = pickRandomParticipant();
+  startSpinFor(chosen);
+};
+
+pickRandomBtn.onclick = ()=>{
+  if(spinInProgress) return;
+  // show chooser dialog with participants
+  const names = state.participants.map(p=>p.name).join('\\n');
+  const pickName = prompt('Введите имя участника или оставьте пустым для случайного:\\n' + names,'');
+  let chosen = null;
+  if(pickName && pickName.trim()){
+    chosen = state.participants.find(p=>p.name.toLowerCase()===pickName.trim().toLowerCase());
+    if(!chosen){ alert('Участник не найден'); return; }
+  } else {
+    chosen = pickRandomParticipant();
+  }
+  startSpinFor(chosen);
+};
+
+// add participant/theme/assign/reset
+addParticipantBtn.onclick = ()=>{
+  const name = participantNameInput.value.trim();
+  if(!name) return alert('Введите имя');
+  state.participants.push({id:uid('p'), name});
+  participantNameInput.value='';
+  saveState(); renderAll();
+};
+
+addThemeBtn.onclick = ()=>{
+  const title = themeTitleInput.value.trim();
+  const color = themeColorInput.value;
+  const qText = themeQuestionsInput.value.trim();
+  if(!title) return alert('Введите название темы');
+  const questions = qText ? qText.split('\\n').map(l=>l.trim()).filter(Boolean).map(t=>({id:uid('q'), text:t, isAnswered:false})) : [];
+  state.themes.push({id:uid('t'), title, color, questions});
+  themeTitleInput.value=''; themeQuestionsInput.value='';
+  saveState(); renderAll();
+};
+
+assignBtn.onclick = ()=>{
+  // random assignment: shuffle participants then assign themes round-robin
+  if(state.themes.length===0){ alert('Нет тем'); return; }
+  if(state.participants.length===0){ alert('Нет участников'); return; }
+  // build a list of themes that have at least 1 question, or fallback to all
+  const themesToUse = state.themes.length ? state.themes : state.themes;
+  const shuffled = [...state.participants].sort(()=>0.5 - Math.random());
+  shuffled.forEach((p,i)=>{ p.themeId = themesToUse[i % themesToUse.length].id; });
+  // apply back (we modified temporary copy), so map by id
+  const map = Object.fromEntries(shuffled.map(p=>[p.id,p]));
+  state.participants = state.participants.map(p=> ({...p, themeId: map[p.id]?.themeId || p.themeId}) );
+  saveState(); renderAll();
+};
+
+resetBtn.onclick = ()=>{
+  if(!confirm('Сбросить всё и удалить локальное состояние?')) return;
+  state = structuredClone(defaultState);
+  localStorage.removeItem('retro_state_v1');
+  renderAll();
+};
+
+// history render
+function renderHistory(){
+  historyEl.innerHTML = '';
+  if(state.history.length===0){ historyEl.innerHTML = '<div class="muted">Пока истории нет</div>'; return; }
+  state.history.forEach(h=>{
+    const p = state.participants.find(x=>x.id===h.participantId) || {name:'(удалён)'};
+    const t = state.themes.find(x=>x.id===h.themeId) || {title:'(удалена)'};
+    const qText = (state.themes.flatMap(tt=>tt.questions).find(q=>q.id===h.questionId)?.text) || '(вопрос)';
+    const el = document.createElement('div'); el.className='history-item';
+    el.innerHTML = `<div style="font-weight:700">${p.name} — ${t.title} ${h.skipped?'<span class="muted"> (пропущено)</span>':''}</div><div class="muted">${qText}</div><div class="muted" style="margin-top:6px;font-size:12px">${h.answeredAt? 'отвечено: '+new Date(h.answeredAt).toLocaleString() : ''}</div>`;
+    historyEl.appendChild(el);
+  });
+}
+
+// top-level render
+function renderAll(){
+  renderParticipants();
+  renderThemes();
+  drawWheel();
+  renderHistory();
+}
+
+// initial render
+renderAll();
+saveState();
+
+</script>
+</body>
+</html>

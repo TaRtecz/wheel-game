@@ -1,0 +1,96 @@
+:root {
+  --bg: #071427;
+  --surface: #0b1220;
+  --muted: #98a2b3;
+  --accent: #7c3aed;
+  --white: #e6eef6;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  font-family: Inter, system-ui, Segoe UI, Roboto, Arial;
+  background: linear-gradient(180deg, #071427, #081324);
+  color: var(--white);
+}
+.app {
+  max-width: 1400px;
+  margin: 28px auto;
+  padding: 20px;
+  display: grid;
+  grid-template-columns: 1fr 460px;
+  gap: 18px;
+}
+.card {
+  background: linear-gradient(
+    180deg,
+    rgba(255, 255, 255, 0.02),
+    rgba(255, 255, 255, 0.01)
+  );
+  border-radius: 12px;
+  padding: 16px;
+  box-shadow: 0 6px 20px rgba(2, 6, 23, 0.6);
+}
+.btn {
+  background: var(--accent);
+  color: #fff;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+}
+.btn.ghost {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+}
+.small {
+  padding: 6px 8px;
+  font-size: 13px;
+}
+.input {
+  width: 100%;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.04);
+  background: transparent;
+  color: inherit;
+}
+.list {
+  max-height: 260px;
+  overflow: auto;
+  margin-top: 8px;
+}
+.item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.01);
+  margin-bottom: 8px;
+}
+.wheel-wrap {
+  width: 520px;
+  height: 520px;
+  display: grid;
+  place-items: center;
+  position: relative;
+}
+.pointer {
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 5;
+  pointer-events: none;
+}
+@media (max-width: 1000px) {
+  .app {
+    grid-template-columns: 1fr;
+  }
+  .wheel-wrap {
+    width: 360px;
+    height: 360px;
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "name": "wheel-retro",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "d3": "^7.8.5",
+    "pinia": "^2.0.35",
+    "vue": "^3.3.4"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.33.0",
+    "@types/d3": "^7.4.3",
+    "@vitejs/plugin-vue": "^4.1.0",
+    "eslint": "^9.33.0",
+    "eslint-plugin-vue": "^10.4.0",
+    "globals": "^16.3.0",
+    "jiti": "^2.5.1",
+    "typescript": "^5.3.3",
+    "typescript-eslint": "^8.39.1",
+    "vite": "^5.1.0"
+  }
+}
