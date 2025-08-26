@@ -1,14 +1,14 @@
 <template>
-  <div>
+  <div class="card">
     <h3>Темы</h3>
     <input v-model="title" placeholder="Название темы" class="input" />
     <div class="color-input-row">
-      <input
+      <!-- <input
         type="color"
         v-model="color"
         class="color-picker"
-      />
-      <button class="btn small" @click="add">Добавить тему</button>
+      /> -->
+      <button class="btn small" @click="createTheme">Добавить тему</button>
     </div>
     <textarea
       v-model="questionsText"
@@ -55,16 +55,31 @@
       </div>
     </div>
   </div>
+
+  <!-- Модальное окно -->
+  <Modal 
+    v-model="isOpen"
+    :title="modalConfig.title"
+    :message="modalConfig.message"
+    :type="modalConfig.type"
+    @confirm="handleConfirm"
+    @close="handleClose"
+  />
 </template>
 
 <script setup lang="ts">
 import { ref } from "vue"
 import { useGameStore } from "../stores/game"
+import { useModal } from "../composables/useModal"
+import Modal from "./Modal.vue"
+
 const store = useGameStore()
+const { isOpen, modalConfig, showConfirm, handleConfirm, handleClose } = useModal()
 const title = ref("")
 const color = ref("#f78aff")
 const questionsText = ref("")
-function add() {
+
+function createTheme() {
   if (!title.value.trim()) return
   store.addTheme(title.value.trim(), color.value, questionsText.value)
   title.value = ""
@@ -82,9 +97,11 @@ function generateRandomColor() {
   return colors[Math.floor(Math.random() * colors.length)]
 }
 
-function remove(id: string) {
-  if (confirm("Удалить тему?"))
+async function remove(id: string) {
+  const confirmed = await showConfirm("Удалить тему?", "Подтверждение")
+  if (confirmed) {
     store.themes = store.themes.filter((t) => t.id !== id)
+  }
 }
 </script>
 

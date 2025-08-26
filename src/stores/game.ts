@@ -11,51 +11,61 @@ export const useGameStore = defineStore("game", () => {
     {
         "id": "p_n0027vs",
         "name": "Андрей",
+        "isAnswered": false,
         "themeId": "t_0m5wepx"
     },
     {
         "id": "p_vhtq9q5",
         "name": "Иван",
+        "isAnswered": false,
         "themeId": "t_qf8isaq"
     },
     {
         "id": "p_y2dic6y",
         "name": "Ника",
+        "isAnswered": false,
         "themeId": "t_qf8isaq"
     },
     {
         "id": "p_2a3n235",
         "name": "Женя",
+        "isAnswered": false,
         "themeId": "t_0m5wepx"
     },
     {
         "id": "p_8k4m9x2",
         "name": "Маша",
+        "isAnswered": false,
         "themeId": "t_movies"
     },
     {
         "id": "p_7h2n5v8",
         "name": "Дима",
+        "isAnswered": false,
         "themeId": "t_sports"
     },
     {
         "id": "p_3q9w1e4",
         "name": "Аня",
+        "isAnswered": false,
         "themeId": "t_music"
     },
     {
         "id": "p_6r4t7y2",
         "name": "Сергей",
+        "isAnswered": false,
         "themeId": "t_food"
     },
     {
         "id": "p_1u8i3o6",
         "name": "Катя",
+        "isAnswered": false,
         "themeId": "t_travel"
     },
     {
         "id": "p_5p9a2s4",
         "name": "Миша",
+        "isAnswered": false,
         "themeId": "t_tech"
     }
 ])
@@ -280,10 +290,16 @@ export const useGameStore = defineStore("game", () => {
   const history = ref<RoundHistory[]>([])
 
   function addParticipant(name: string) {
-    participants.value.push({ id: uid("p"), name })
+    participants.value.push({ id: uid("p"), name, isAnswered: false })
   }
+
   function removeParticipant(id: string) {
     participants.value = participants.value.filter((p) => p.id !== id)
+  }
+
+  function answerByParticipant(id: string) {
+    const p = participants.value.find((p) => p.id === id)
+    if (p) p.isAnswered = true
   }
 
   function addTheme(title: string, color: string, questionsText: string) {
@@ -311,18 +327,28 @@ export const useGameStore = defineStore("game", () => {
   function markQuestionAnswered(
     themeId: string,
     questionId: string,
-    participantId?: string
+    participantId: string
   ) {
-    const t = themes.value.find((x) => x.id === themeId)
-    if (!t) return
-    const q = t.questions.find((x) => x.id === questionId)
-    if (q) q.isAnswered = true
-    if (participantId)
-      participants.value = participants.value.filter(
-        (p) => p.id !== participantId
-      )
+    if (!participantId) return
+    
+    // Помечаем вопрос как отвеченный
+    const theme = themes.value.find(t => t.id === themeId)
+    if (!theme) return
+    
+    const question = theme.questions.find(q => q.id === questionId)
+    if (question) {
+      question.isAnswered = true
+    }
+    
+    // Помечаем участника как ответившего
+    const participant = participants.value.find(p => p.id === participantId)
+    if (participant) {
+      participant.isAnswered = true
+    }
+    
+    // Добавляем в историю
     history.value.unshift({
-      participantId: participantId || "unknown",
+      participantId,
       themeId,
       questionId,
       answeredAt: new Date().toISOString(),
@@ -354,6 +380,7 @@ export const useGameStore = defineStore("game", () => {
     history,
     addParticipant,
     removeParticipant,
+    answerByParticipant,
     addTheme,
     assignThemesRandom,
     markQuestionAnswered,

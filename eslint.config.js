@@ -2,6 +2,8 @@
 import { defineConfig } from "eslint/config";
 import tsEslint from "@typescript-eslint/eslint-plugin";
 import tsParser from "@typescript-eslint/parser";
+import prettier from "eslint-plugin-prettier";
+import prettierConfig from "eslint-config-prettier";
 
 export default defineConfig([
   {
@@ -15,6 +17,7 @@ export default defineConfig([
     },
     plugins: {
       "@typescript-eslint": tsEslint,
+      prettier: prettier,
     },
     extends: [
       "eslint:recommended", // ESLint's core recommended rules
@@ -22,6 +25,7 @@ export default defineConfig([
       "plugin:@typescript-eslint/recommended-type-checked", // Recommended rules requiring type information
       "plugin:@typescript-eslint/strict-type-checked", // Strict rules requiring type information
       "plugin:@typescript-eslint/stylistic-type-checked", // Stylistic rules requiring type information
+      prettierConfig, // Disable ESLint rules that conflict with Prettier
     ],
     rules: {
       // Add or override specific rules here
@@ -29,13 +33,33 @@ export default defineConfig([
       "@typescript-eslint/no-explicit-any": "error",
       // Require consistent type imports:
       "@typescript-eslint/consistent-type-imports": "error",
+      // Prettier rules
+      "prettier/prettier": "error",
     },
   },
   {
     files: ["**/*.js", "**/*.jsx"], // Apply to JavaScript files
-    extends: ["eslint:recommended"],
+    plugins: {
+      prettier: prettier,
+    },
+    extends: [
+      "eslint:recommended",
+      prettierConfig,
+    ],
     rules: {
-      // JavaScript-specific rules if needed
+      "prettier/prettier": "error",
+    },
+  },
+  {
+    files: ["**/*.vue"], // Apply to Vue files
+    plugins: {
+      prettier: prettier,
+    },
+    extends: [
+      prettierConfig,
+    ],
+    rules: {
+      "prettier/prettier": "error",
     },
   },
 ]);

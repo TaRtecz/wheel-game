@@ -30,7 +30,7 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, watch, ref, nextTick } from 'vue'
+import { onMounted, watch, ref, nextTick, computed } from 'vue'
 import * as d3 from 'd3'
 import type { Theme, Participant } from '../types'
 
@@ -45,12 +45,17 @@ const svgEl = ref<SVGSVGElement | null>(null)
 let group: SVGGElement | null = null
 
 function buildData() {
-  return props.themes
-    .map(t => ({ 
-      ...t, 
-      count: props.participants.filter(p => p.themeId === t.id).length 
-    }))
-    .filter(d => d.count > 0)
+  console.log('biu');
+  const filtred = props.participants.filter((item) => !item.isAnswered)
+  
+  return filtred.map(participant => {
+    const theme = props.themes.find(t => t.id === participant.themeId)
+    return {
+      ...participant,
+      themeColor: theme?.color || '#ccc',
+      themeTitle: theme?.title || 'Без темы'
+    }
+  })
 }
 
 function draw() {
@@ -66,60 +71,61 @@ function draw() {
       .attr('text-anchor', 'middle')
       .attr('fill', '#bfcfe0')
       .attr('font-size', 16)
-      .text('Нет назначенных участников')
+      .text('Нет участников')
     return 
   }
 
   const radius = 200
-  group = svg.append('g').node() as SVGGElement
-  let angleStart = 0
-  const total = data.reduce((s, d) => s + d.count, 0)
+  group = svg.append('g')
+    .attr('data-rot', '0')
+    .attr('transform', 'rotate(0)')
+    .node() as SVGGElement
+  
+  const sliceAngle = (2 * Math.PI) / data.length
 
-  data.forEach((d, i) => {
-    const slice = d.count / total
-    const angle = slice * 2 * Math.PI
-    const a0 = angleStart
-    const a1 = angleStart + angle
+  data.forEach((participant, i) => {
+    const a0 = i * sliceAngle
+    const a1 = (i + 1) * sliceAngle
     const x0 = Math.cos(a0) * radius
     const y0 = Math.sin(a0) * radius
     const x1 = Math.cos(a1) * radius
     const y1 = Math.sin(a1) * radius
-    const largeArc = angle > Math.PI ? 1 : 0
 
-    // Рисуем сектор
-    svg.append('path')
-      .attr('d', `M 0 0 L ${x0} ${y0} A ${radius} ${radius} 0 ${largeArc} 1 ${x1} ${y1} Z`)
-      .attr('fill', d.color)
+    // Рисуем сектор для участника
+    group!.appendChild(svg.append('path')
+      .attr('d', `M 0 0 L ${x0} ${y0} A ${radius} ${radius} 0 0 1 ${x1} ${y1} Z`)
+      .attr('fill', participant.themeColor)
       .attr('stroke', 'rgba(0,0,0,0.35)')
-      .attr('data-theme-id', d.id)
+      .attr('data-participant-id', participant.id)
+      .node()!)
 
-    // Добавляем текст
+    // Добавляем имя участника
     const mid = (a0 + a1) / 2
-    const tx = Math.cos(mid) * (radius * 0.58)
-    const ty = Math.sin(mid) * (radius * 0.58)
+    const tx = Math.cos(mid) * (radius * 0.7)
+    const ty = Math.sin(mid) * (radius * 0.7)
     const rotation = (mid * 180 / Math.PI) > 90 && (mid * 180 / Math.PI) < 270 
       ? mid * 180 / Math.PI + 180 
       : mid * 180 / Math.PI
 
-    svg.append('text')
+    group!.appendChild(svg.append('text')
       .attr('x', tx)
       .attr('y', ty)
       .attr('text-anchor', 'middle')
       .attr('dominant-baseline', 'central')
-      .attr('font-size', 12)
+      .attr('font-size', 16)
       .attr('fill', '#071427')
-      .attr('font-weight', 700)
-      .text(`${d.title} (${d.count})`)
+      .attr('font-weight', 600)
+      .text(participant.name)
       .attr('transform', `rotate(${rotation}, ${tx}, ${ty})`)
-
-    angleStart = a1
+      .node()!)
   })
 
   // Центральный круг
-  svg.append('circle')
+  group!.appendChild(svg.append('circle')
     .attr('r', 36)
     .attr('fill', 'rgba(255,255,255,0.03)')
     .attr('stroke', 'rgba(255,255,255,0.04)')
+    .node()!)
 }
 
 function spinToTheme(themeId: string) {
@@ -129,22 +135,32 @@ function spinToTheme(themeId: string) {
   
   const svg = d3.select(svgEl.value)
   const data = buildData()
-  const idx = data.findIndex(d => d.id === themeId)
-  if (idx === -1) return
-
-  const total = data.reduce((s, d) => s + d.count, 0)
-  let acc = 0
-  for (let i = 0; i < idx; i++) acc += data[i].count
-
-  const slice = data[idx].count / total
-  const centerFrac = acc / total + slice / 2
-  const centerDeg = centerFrac * 360
-  const targetDeg = (270 - centerDeg + 360 * 6) % 360
-  const finalDeg = targetDeg + (Math.random() * (slice * 360 / 2) - (slice * 360 / 4))
   
-  const g = svg.select('g')
+  // Находим всех участников с указанной темой
+  const participantsInTheme = data.filter(p => p.themeId === themeId)
+  if (participantsInTheme.length === 0) return
+  
+  // Выбираем случайного участника из темы
+  const chosenParticipant = participantsInTheme[Math.floor(Math.random() * participantsInTheme.length)]
+  const participantIndex = data.findIndex(p => p.id === chosenParticipant.id)
+  
+  const sliceAngle = (2 * Math.PI) / data.length
+  const centerAngle = participantIndex * sliceAngle + sliceAngle / 2
+  
+  // Поворачиваем колесо так, чтобы выбранный участник оказался сверху
+  const targetDeg = 270 - (centerAngle * 180 / Math.PI) + 360 * 5
+  
+  const g = d3.select(group)
   const prev = parseFloat((g.attr('data-rot') || '0')) || 0
-  const to = prev + finalDeg
+  const to = prev + targetDeg
+
+  console.log('Поворот к участнику:', { 
+    participant: chosenParticipant.name, 
+    theme: chosenParticipant.themeTitle,
+    prev, 
+    targetDeg, 
+    to 
+  })
 
   g.transition()
     .duration(4200)
@@ -156,16 +172,14 @@ function spinToTheme(themeId: string) {
     .on('end', () => {
       g.attr('data-rot', String(to))
       
-      const chosenTheme = data[idx]
-      const participantsInTheme = props.participants.filter(p => p.themeId === chosenTheme.id)
-      const chosenParticipant = participantsInTheme[Math.floor(Math.random() * participantsInTheme.length)]
-      const unanswered = chosenTheme.questions.filter(q => !q.isAnswered)
-      const chosenQuestion = unanswered[Math.floor(Math.random() * unanswered.length)]
+      const theme = props.themes.find(t => t.id === chosenParticipant.themeId)
+      const unanswered = theme?.questions.filter(q => !q.isAnswered) || []
+      const chosenQuestion = unanswered[Math.floor(Math.random() * unanswered.length)] || null
 
       emits('spin-finished', { 
         participant: chosenParticipant, 
         question: chosenQuestion, 
-        theme: chosenTheme 
+        theme: theme 
       })
     })
 }
@@ -187,15 +201,17 @@ onMounted(() => draw())
 .wheel-wrap {
   position: relative;
   width: 100%;
-  max-width: 500px;
+  max-width: 650px;
   margin: 0 auto;
+  height: 100%;
 }
 
 .pointer {
   position: absolute;
-  top: -12px;
-  left: 50%;
+  top: 0px;
+  left: 45%;
   transform: translateX(-50%);
+  transform: rotate(180deg);
   z-index: 10;
 }
 
